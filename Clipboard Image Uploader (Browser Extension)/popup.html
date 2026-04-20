@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { width: 320px; padding: 15px; font-family: sans-serif; background: #fff; }
+        .setting-item { margin-bottom: 12px; }
+        .select-row { display: flex; align-items: center; gap: 8px; }
+        select { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; max-width: 220px; }
+        #cap-info { font-size: 11px; font-weight: bold; color: #27ae60; margin-top: 18px; white-space: nowrap; }
+        
+        #paste-area {
+            border: 2px dashed #ccc; padding: 40px 20px; text-align: center;
+            color: #666; cursor: pointer; border-radius: 8px; outline: none; transition: 0.3s; margin-top: 5px;
+        }
+        #paste-area:hover, #paste-area:focus { border-color: #2c3e50; background: #f0f7ff; color: #2c3e50; }
+        
+        .manage-box { margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee; display: none; }
+        .btn-group { display: flex; gap: 5px; margin-top: 5px; }
+        .btn-small { flex: 1; padding: 5px; font-size: 11px; cursor: pointer; }
+        
+        #result { margin-top: 10px; word-break: break-all; font-size: 12px; padding: 8px; background: #e6f7ff; display: none; border-radius: 4px; border: 1px solid #91d5ff; }
+        .footer { margin-top: 10px; text-align: right; }
+        .toggle-manage { font-size: 11px; color: #999; text-decoration: none; cursor: pointer; }
+        input[type="text"], input[type="password"] { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <div class="setting-item">
+        <label style="font-size: 12px; color: #666;">服务器选择：</label>
+        <div class="select-row">
+            <select id="url-select"></select>
+            <div id="cap-info">-- MB</div>
+        </div>
+    </div>
+
+    <div id="paste-area" tabindex="0">点击此处或粘贴图片</div>
+    <input type="file" id="file-input" accept="image/*" style="display:none">
+    <div id="result"></div>
+
+    <div class="footer"><span class="toggle-manage" id="toggle-manage">管理服务器</span></div>
+
+    <div class="manage-box" id="manage-box">
+        <div class="setting-item"><input type="text" id="new-url" placeholder="URL (http://...)"></div>
+        <div class="setting-item"><input type="password" id="new-pass" placeholder="Password"></div>
+        <div class="btn-group">
+            <button class="btn-small" id="add-btn">添加/更新</button>
+            <button class="btn-small" id="del-btn" style="color:red">删除当前</button>
+        </div>
+        <div class="btn-group" style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;">
+            <button class="btn-small" id="export-btn">导出备份</button>
+            <button class="btn-small" id="import-btn">导入备份</button>
+        </div>
+        <input type="file" id="import-file" accept=".json" style="display:none">
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

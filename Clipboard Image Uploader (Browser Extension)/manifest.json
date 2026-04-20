@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "剪切板图片上传器 (多站版)",
+  "version": "1.1",
+  "description": "支持多服务器配置的图片上传器",
+  "permissions": ["clipboardRead", "storage"],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
