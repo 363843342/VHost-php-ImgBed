@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         图床上传助手 (增强容量显示版)
+// @name         NodeImage图床上传助手 (多服php版)
 // @namespace    https://image.demo.xyz/
 // @version      2.7.1
 // @description  解决下拉闪退问题。左键选择，右键新窗口访问。支持列表内实时容量显示。
