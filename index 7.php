@@ -52,8 +52,10 @@ $remaining_mb = round(($max_bytes - $used_bytes) / 1024 / 1024, 2);
 
 /**
  * 身份校验 (支持 API 传参)
+ * 默认密码123，它的sha256是'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3'
+ * 改成别的就用sha256工具转换一下在复制到$safe_key = ''
  */
-$safe_key = '765f5c07aac9ed2ae0249447bfc33bfc7203dc00975c67d24c38f2afc72b790a'; 
+$safe_key = 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3'; 
 $is_api = (isset($_REQUEST['api']) || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest'));
 
 // 如果带了 mypass 参数，尝试进行静默登录
