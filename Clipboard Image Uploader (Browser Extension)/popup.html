@@ -3,15 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        body { width: 320px; padding: 15px; font-family: sans-serif; background: #fff; }
+        body { width: 340px; padding: 15px; font-family: sans-serif; background: #fff; }
         .setting-item { margin-bottom: 12px; }
-        .select-row { display: flex; align-items: center; gap: 8px; }
-        select { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; max-width: 220px; }
-        #cap-info { font-size: 11px; font-weight: bold; color: #27ae60; margin-top: 18px; white-space: nowrap; }
+        .select-row { display: flex; align-items: center; gap: 8px; width: 100%; }
+        select { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; max-width: 250px; overflow: hidden; text-overflow: ellipsis; }
+        #cap-info { font-size: 11px; font-weight: bold; color: #27ae60; white-space: nowrap; }
+        #visit-link { font-size: 13px; color: #1890ff; text-decoration: none; cursor: pointer; font-weight: bold; white-space: nowrap; margin-left: 2px; }
         
+        /* 关键修改：粘贴区域样式 */
         #paste-area {
             border: 2px dashed #ccc; padding: 40px 20px; text-align: center;
             color: #666; cursor: pointer; border-radius: 8px; outline: none; transition: 0.3s; margin-top: 5px;
+            overflow: hidden; white-space: pre-wrap; word-break: break-all;
+            caret-color: transparent; /* 隐藏闪烁的光标竖线 */
+            user-select: none;        /* 防止用户意外选中框内的提示文字 */
+
         }
         #paste-area:hover, #paste-area:focus { border-color: #2c3e50; background: #f0f7ff; color: #2c3e50; }
         
@@ -19,7 +25,11 @@
         .btn-group { display: flex; gap: 5px; margin-top: 5px; }
         .btn-small { flex: 1; padding: 5px; font-size: 11px; cursor: pointer; }
         
-        #result { margin-top: 10px; word-break: break-all; font-size: 12px; padding: 8px; background: #e6f7ff; display: none; border-radius: 4px; border: 1px solid #91d5ff; }
+        /* 结果展示区优化 */
+        #result { margin-top: 10px; font-size: 12px; padding: 10px; background: #f6ffed; display: none; border-radius: 4px; border: 1px solid #b7eb8f; cursor: pointer; position: relative; }
+        #result:hover { background: #f0f9eb; }
+        #result::after { content: "点击直接复制"; position: absolute; right: 5px; top: 2px; font-size: 9px; color: #52c41a; }
+
         .footer { margin-top: 10px; text-align: right; }
         .toggle-manage { font-size: 11px; color: #999; text-decoration: none; cursor: pointer; }
         input[type="text"], input[type="password"] { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
@@ -31,10 +41,11 @@
         <div class="select-row">
             <select id="url-select"></select>
             <div id="cap-info">-- MB</div>
+            <a id="visit-link" href="#">访问</a>
         </div>
     </div>
 
-    <div id="paste-area" tabindex="0">点击此处或粘贴图片</div>
+    <div id="paste-area" contenteditable="true" tabindex="0">点击此处或粘贴图片</div>
     <input type="file" id="file-input" accept="image/*" style="display:none">
     <div id="result"></div>
 
@@ -53,7 +64,6 @@
         </div>
         <input type="file" id="import-file" accept=".json" style="display:none">
     </div>
-
     <script src="popup.js"></script>
 </body>
 </html>

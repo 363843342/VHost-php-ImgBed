@@ -1,12 +1,11 @@
-// --- 变量与配置初始化 ---
 let serverList = [];
-const DEFAULT_URLS = [{ url: '', pass: '', remaining: null, lastUpdated: 0 }];
-// 已删除 CACHE_TIMEOUT，改为日期比对逻辑
-const MAX_RETRIES = 8;               
+const DEFAULT_URLS = [{ url: '', pass: '', remaining: null }];
+const MAX_RETRIES = 5;               
 let isUserSelecting = false;         
 
 const elements = {
     urlSelect: document.getElementById('url-select'),
+    visitLink: document.getElementById('visit-link'),
     pasteArea: document.getElementById('paste-area'),
     newUrlInput: document.getElementById('new-url'),
     newPassInput: document.getElementById('new-pass'),
@@ -24,16 +23,27 @@ const elements = {
 
 // --- 工具函数 ---
 
-/**
- * 判断两个时间戳是否在同一个自然日
- */
-function isSameDay(t1, t2) {
-    if (!t1 || !t2) return false;
-    const d1 = new Date(t1);
-    const d2 = new Date(t2);
-    return d1.getFullYear() === d2.getFullYear() &&
-           d1.getMonth() === d2.getMonth() &&
-           d1.getDate() === d2.getDate();
+// 通用复制函数：解决异步后 navigator.clipboard 可能失效的问题
+async function copyToClipboard(text) {
+    try {
+        // 尝试现代 API
+        await navigator.clipboard.writeText(text);
+        return true;
+    } catch (err) {
+        // 降级方案：使用 textarea 复制
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            return true;
+        } catch (e) {
+            document.body.removeChild(textArea);
+            return false;
+        }
+    }
 }
 
 function getTimestamp() {
@@ -71,144 +81,74 @@ function refreshUI(forceShowCapacity = null) {
 
 function saveData() {
     chrome.storage.sync.set({ 
-        serverList: serverList.map(s => ({
-            url: s.url, pass: s.pass, remaining: s.remaining, lastUpdated: s.lastUpdated
-        })),
+        serverList: serverList.map(s => ({ url: s.url, pass: s.pass, remaining: s.remaining })),
         lastUsedUrl: elements.urlSelect.value
     });
 }
 
-// --- 上传核心逻辑 ---
-
-async function uploadWithRetry(file, config, fileName, attempt = 1) {
-    const formData = new FormData();
-    formData.append('f', file, fileName);
-    formData.append('up', '1');
-    formData.append('api', '1');
-    if (config?.pass) formData.append('mypass', config.pass);
-
-    try {
-        elements.pasteArea.innerText = `上传中 (尝试 ${attempt}/${MAX_RETRIES})...`;
-        const resp = await fetch(config.url, { method: 'POST', body: formData, credentials: 'include' });
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        return await resp.json();
-    } catch (e) {
-        if (attempt < MAX_RETRIES) return await uploadWithRetry(file, config, fileName, attempt + 1);
-        throw e;
-    }
-}
+// --- 核心逻辑 ---
 
 async function processUpload(file, isClipboard = false) {
     if (!file) return;
-    const currentUrl = elements.urlSelect.value;
-    const config = serverList.find(s => s.url === currentUrl);
-    
-    const finalFileName = isClipboard ? `clip_${getTimestamp()}.png` : (file.name || `file_${getTimestamp()}.png`);
+    const config = serverList.find(s => s.url === elements.urlSelect.value);
+    if (!config || !config.url) return alert("请先配置服务器 URL");
 
+    const finalFileName = isClipboard ? `clip_${getTimestamp()}.png` : (file.name || `file_${getTimestamp()}.png`);
     elements.resultDiv.style.display = 'none';
 
-    try {
-        const data = await uploadWithRetry(file, config, finalFileName);
-        if (data.status === 'success') {
-            elements.pasteArea.innerText = "上传成功！";
-            navigator.clipboard.writeText(data.url);
-            
-            elements.resultDiv.style.display = 'block';
-            elements.resultDiv.innerHTML = `
-                <div style="margin-bottom:5px; color:#27ae60; font-weight:bold;">已复制地址：</div>
-                <input type="text" readonly value="${data.url}" 
-                       style="width:100%; padding:6px; border:1px solid #91d5ff; border-radius:4px; background:#fff; font-size:12px;"
-                       onclick="this.select()">
-                <div style="margin-top:6px; text-align:right;">
-                    <a href="${data.url}" target="_blank" style="color:#1890ff; text-decoration:none; font-size:11px;">在新窗口打开 &raquo;</a>
-                </div>
-            `;
-            
-            if (data.remaining !== undefined) {
-                config.remaining = data.remaining;
-                config.lastUpdated = Date.now();
-                refreshUI();
-                saveData();
-            }
-        } else {
-            throw new Error(data.message || "未知错误");
-        }
-    } catch (e) {
-        alert(`上传失败: ` + e.message);
-        elements.pasteArea.innerText = "点击或粘贴图片重试";
-    }
-}
+    async function upload(attempt = 1) {
+        const formData = new FormData();
+        formData.append('f', file, finalFileName);
+        formData.append('up', '1');
+        formData.append('api', '1');
+        if (config?.pass) formData.append('mypass', config.pass);
 
-// --- 备份与导入逻辑 ---
-
-function exportConfigs() {
-    const dataStr = JSON.stringify(serverList, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `uploader_config_${getTimestamp()}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-}
-
-function importConfigs(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (event) => {
         try {
-            const imported = JSON.parse(event.target.result);
-            if (Array.isArray(imported)) {
-                serverList = imported;
-                saveData();
-                refreshUI();
-                alert("导入成功！已更新服务器列表。");
-            }
-        } catch (err) {
-            alert("导入失败，请检查文件格式。");
-        }
-    };
-    reader.readAsText(file);
-}
+            elements.pasteArea.innerText = `上传中 (${attempt}/${MAX_RETRIES})...`;
+            const resp = await fetch(config.url, { method: 'POST', body: formData, credentials: 'include' });
+            const data = await resp.json();
+            
+            if (data.status === 'success') {
+                elements.pasteArea.innerText = "上传成功！点击或粘贴继续";
+                
+                // 自动复制到剪切板
+                await copyToClipboard(data.url);
 
-// --- 网络请求与重试逻辑 ---
+                elements.resultDiv.style.display = 'block';
+                elements.resultDiv.innerHTML = `
+                    <div style="color:#27ae60;font-weight:bold;">上传完成（已自动复制）：</div>
+                    <div id="url-text" style="word-break:break-all; background:#fff; padding:5px; border:1px solid #eee; margin-top:5px;">${data.url}</div>
+                `;
+                
+                // 给结果框绑定点击即复制
+                elements.resultDiv.onclick = async () => {
+                    if(await copyToClipboard(data.url)) {
+                        const originalText = elements.resultDiv.innerHTML;
+                        elements.resultDiv.innerText = "已再次复制到剪切板！";
+                        setTimeout(() => elements.resultDiv.innerHTML = originalText, 1000);
+                    }
+                };
 
-async function fetchStatusWithRetry(item, index, attempt = 1) {
-    try {
-        const apiUri = `${item.url}${item.url.includes('?') ? '&' : '?'}status=1&api=1&mypass=${encodeURIComponent(item.pass)}`;
-        const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), 5000); 
-        
-        const resp = await fetch(apiUri, { signal: controller.signal, credentials: 'include' });
-        clearTimeout(id);
-        
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        
-        const data = await resp.json();
-        if (data.status === 'success') {
-            serverList[index].remaining = data.remaining;
-            serverList[index].lastUpdated = Date.now();
-        } else {
-            throw new Error(data.message || "API返回异常");
+                if (data.remaining !== undefined) {
+                    config.remaining = data.remaining;
+                    chrome.storage.sync.set({ lastRefreshDate: Date.now() });
+                    refreshUI();
+                    saveData();
+                }
+            } else throw new Error(data.message);
+        } catch (e) {
+            if (attempt < MAX_RETRIES) return upload(attempt + 1);
+            alert("上传失败: " + e.message);
+            elements.pasteArea.innerText = "点击或粘贴重试";
         }
-    } catch (e) {
-        if (attempt < MAX_RETRIES) {
-            return await fetchStatusWithRetry(item, index, attempt + 1);
-        }
-        serverList[index].remaining = "Err";
     }
+    upload();
 }
 
-async function fetchAllStatuses() {
-    const promises = serverList.map((item, index) => fetchStatusWithRetry(item, index));
-    await Promise.allSettled(promises);
-    refreshUI();
-    saveData();
-}
+// --- 初始化与事件 ---
 
 async function init() {
-    const data = await chrome.storage.sync.get(['serverList', 'lastUsedUrl']);
+    const data = await chrome.storage.sync.get(['serverList', 'lastUsedUrl', 'lastRefreshDate']);
     serverList = data.serverList || DEFAULT_URLS;
     if (data.lastUsedUrl) {
         const tempOpt = document.createElement('option');
@@ -217,63 +157,68 @@ async function init() {
         elements.urlSelect.value = data.lastUsedUrl;
     }
     refreshUI(false); 
-    
-    // 修改处：检测当天日期
-    const now = Date.now();
-    // 如果任何一个服务器从未更新过，或者更新日期不是今天，则触发全局刷新
-    if (serverList.some(s => !s.lastUpdated || !isSameDay(s.lastUpdated, now))) {
-        fetchAllStatuses();
-    }
-    
     elements.pasteArea.focus();
 }
 
-// --- 事件绑定 ---
-
-elements.urlSelect.addEventListener('mousedown', () => { isUserSelecting = true; refreshUI(true); });
-elements.urlSelect.addEventListener('change', () => { isUserSelecting = false; refreshUI(false); saveData(); });
-elements.urlSelect.addEventListener('blur', () => { isUserSelecting = false; refreshUI(false); });
-
-elements.toggleManage.addEventListener('click', () => {
-    elements.manageBox.style.display = elements.manageBox.style.display === 'block' ? 'none' : 'block';
+// 监听粘贴事件：改为监听 document 确保随时可用
+document.addEventListener('paste', e => {
+    // 防止 contenteditable 真的填入文字
+    setTimeout(() => { elements.pasteArea.innerHTML = "点击此处或粘贴图片"; }, 10);
+    
+    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    for (let i of items) {
+        if (i.type.indexOf('image') !== -1) {
+            processUpload(i.getAsFile(), true);
+            return;
+        }
+    }
 });
 
-elements.addBtn.addEventListener('click', () => {
+// 点击粘贴区域触发文件选择
+elements.pasteArea.addEventListener('click', (e) => {
+    // 如果是因为 contenteditable 聚焦，不触发文件选择，除非是明确的鼠标点击
+    if (e.detail > 0) elements.fileInput.click();
+});
+
+elements.fileInput.addEventListener('change', () => {
+    if (elements.fileInput.files[0]) {
+        processUpload(elements.fileInput.files[0], false);
+        // 清空选择，方便下次选同一个文件
+        elements.fileInput.value = '';
+    }
+});
+
+elements.visitLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (elements.urlSelect.value) window.open(elements.urlSelect.value, '_blank');
+});
+
+elements.addBtn.addEventListener('click', async () => {
     const url = elements.newUrlInput.value.trim();
+    const pass = elements.newPassInput.value.trim();
     if (!url) return;
     const idx = serverList.findIndex(s => s.url === url);
-    const pass = elements.newPassInput.value.trim();
     if (idx !== -1) {
         serverList[idx].pass = pass;
-        serverList[idx].lastUpdated = 0;
+        alert("配置已更新");
     } else {
-        serverList.push({ url, pass, remaining: null, lastUpdated: 0 });
+        serverList.push({ url, pass, remaining: null });
+        alert("服务器已添加");
     }
     elements.urlSelect.value = url;
     saveData();
     refreshUI(false);
-    fetchAllStatuses();
 });
 
+elements.urlSelect.addEventListener('mousedown', () => { isUserSelecting = true; refreshUI(true); });
+elements.urlSelect.addEventListener('change', () => { isUserSelecting = false; refreshUI(false); saveData(); });
+elements.urlSelect.addEventListener('blur', () => { isUserSelecting = false; refreshUI(false); });
+elements.toggleManage.addEventListener('click', () => elements.manageBox.style.display = elements.manageBox.style.display === 'block' ? 'none' : 'block');
 elements.delBtn.addEventListener('click', () => {
     if (serverList.length <= 1) return alert("请保留至少一个配置");
     serverList = serverList.filter(s => s.url !== elements.urlSelect.value);
     saveData();
     init();
-});
-
-elements.exportBtn.addEventListener('click', exportConfigs);
-elements.importBtn.addEventListener('click', () => elements.importFile.click());
-elements.importFile.addEventListener('change', importConfigs);
-
-elements.pasteArea.addEventListener('paste', e => {
-    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-    for (let i of items) if (i.type.indexOf('image') !== -1) processUpload(i.getAsFile(), true);
-});
-
-elements.pasteArea.addEventListener('click', () => elements.fileInput.click());
-elements.fileInput.addEventListener('change', () => {
-    if (elements.fileInput.files[0]) processUpload(elements.fileInput.files[0], false);
 });
 
 init();
