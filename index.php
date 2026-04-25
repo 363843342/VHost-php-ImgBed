@@ -44,8 +44,8 @@ $remaining_mb = round(($max_bytes - $used_bytes) / 1024 / 1024, 2);
 
 /**
  * 身份校验 (支持 API 传参)
- * 默认密码123，它的sha265是'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3'
- * 改成别的就用sha265工具转换一下在复制到$safe_key = ''
+ * 默认密码123，它的sha256是'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3'
+ * 改成别的就用sha256工具转换一下在复制到$safe_key = ''
  */
 $safe_key = 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3'; 
 $is_api = (isset($_REQUEST['api']) || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest'));
