@@ -47,7 +47,7 @@
 
 *   点击图标，进入左下角的**管理服务器** 。
 *   添加服务器 URL（必须以 `index.php` 结尾），例如 ：
-    *   `https://example.cc/index.php`
+    *   `http://example.cc/index.php`
     *   `https://example.cc/img/index.php`
 *   **更新提示**：若添加已存在的 URL，系统会提示密码已更新 。
 
