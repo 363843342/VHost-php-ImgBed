@@ -221,4 +221,55 @@ elements.delBtn.addEventListener('click', () => {
     init();
 });
 
+// --- 导出备份逻辑 ---
+elements.exportBtn.addEventListener('click', () => {
+    // 将当前的 serverList 转换为 JSON 字符串
+    const dataStr = JSON.stringify(serverList, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    // 创建虚拟链接并模拟点击下载
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `img_server_backup_${getTimestamp()}.json`;
+    link.click();
+    
+    // 释放 URL 对象
+    URL.revokeObjectURL(url);
+});
+
+// --- 导入备份逻辑 ---
+// 1. 点击“导入”按钮触发隐藏的文件输入框
+elements.importBtn.addEventListener('click', () => {
+    elements.importFile.click();
+});
+
+// 2. 监听文件输入框的变更
+elements.importFile.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        try {
+            const importedList = JSON.parse(event.target.result);
+            
+            // 简单校验一下数据格式
+            if (Array.isArray(importedList) && importedList.length > 0 && importedList[0].url !== undefined) {
+                serverList = importedList;
+                saveData(); // 保存到 chrome.storage
+                refreshUI(false); // 刷新界面
+                alert('导入成功！');
+            } else {
+                throw new Error('无效的备份文件格式');
+            }
+        } catch (err) {
+            alert('导入失败：' + err.message);
+        }
+        // 清空 input 方便下次导入同一个文件
+        elements.importFile.value = '';
+    };
+    reader.readAsText(file);
+});
+
 init();
